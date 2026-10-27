@@ -1,4 +1,10 @@
+
 import Foundation
+
+enum TrackSource: String, Codable {
+    case online
+    case local
+}
 
 struct Track: Identifiable, Codable {
     var id = UUID()
@@ -7,8 +13,37 @@ struct Track: Identifiable, Codable {
     let url: String
     var artwork: String? = nil
     var lyrics: String? = nil
+    var source: TrackSource = .online
 
     enum CodingKeys: String, CodingKey {
-        case title, artist, url, artwork, lyrics   // no `id`
+        case title, artist, url, artwork, lyrics, source
+    }
+
+    init(
+        title: String,
+        artist: String,
+        url: String,
+        artwork: String? = nil,
+        lyrics: String? = nil,
+        source: TrackSource = .online
+    ) {
+        self.id = UUID()
+        self.title = title
+        self.artist = artist
+        self.url = url
+        self.artwork = artwork
+        self.lyrics = lyrics
+        self.source = source
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = UUID()
+        title = try container.decode(String.self, forKey: .title)
+        artist = try container.decode(String.self, forKey: .artist)
+        url = try container.decode(String.self, forKey: .url)
+        artwork = try container.decodeIfPresent(String.self, forKey: .artwork)
+        lyrics = try container.decodeIfPresent(String.self, forKey: .lyrics)
+        source = try container.decodeIfPresent(TrackSource.self, forKey: .source) ?? .online
     }
 }
