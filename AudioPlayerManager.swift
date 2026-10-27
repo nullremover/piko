@@ -100,14 +100,19 @@ class AudioPlayerManager: ObservableObject {
                    artist: String,
                    artworkURLString: String? = nil,
                    lyricsURLString: String? = nil) {
-        guard let url = URL(string: urlString) else {
+        
+        let allowedCharacters = CharacterSet.urlQueryAllowed.union(CharacterSet(charactersIn: ":/?#[]@!$&'()*+,;="))
+        guard let encodedString = urlString.addingPercentEncoding(withAllowedCharacters: allowedCharacters),
+              let url = URL(string: encodedString) else {
             errorMessage = "Bad URL: \(urlString)"
             return
         }
 
         currentTrackTitle = title
         currentArtist = artist
-        currentArtworkURL = artworkURLString.flatMap { URL(string: $0) }
+        currentArtworkURL = artworkURLString.flatMap { 
+            URL(string: $0.addingPercentEncoding(withAllowedCharacters: allowedCharacters) ?? $0) 
+        }
         clock.elapsed = 0
         clock.duration = 0
 
@@ -219,7 +224,9 @@ class AudioPlayerManager: ObservableObject {
         lyrics = []
         lyricsSynced = false
 
-        guard let urlString, let url = URL(string: urlString) else {
+        guard let urlString, 
+              let encoded = urlString.addingPercentEncoding(withAllowedCharacters: CharacterSet.urlQueryAllowed.union(CharacterSet(charactersIn: ":/?#[]@!$&'()*+,;="))),
+              let url = URL(string: encoded) else {
             lyricsState = .none
             return
         }
