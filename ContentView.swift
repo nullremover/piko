@@ -71,7 +71,12 @@ struct ContentView: View {
                             }
                             Spacer()
                             Button(action: {
-                                audioManager.playTrack(urlString: track.Url, title: track.title, artist: track.artist, artworkURLString: track.artwork)
+                                audioManager.playTrack(
+                                    urlString: track.url,
+                                    title: track.title,
+                                    artist: track.artist,
+                                    artworkURLString: track.artwork
+                                )
                             }) {
                                 Image(systemName: "play.circle.fill")
                                     .font(.system(size: 32))
@@ -81,7 +86,6 @@ struct ContentView: View {
                         .listRowBackground(themeManager.currentTheme.backgroundColor.opacity(0.8))
                     }
                     .scrollContentBackground(.hidden)
-                }
 
                 Spacer()
 
