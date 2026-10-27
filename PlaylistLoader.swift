@@ -34,7 +34,7 @@ class PlaylistLoader: ObservableObject {
                 do {
                     // Decode the raw JSON directly into our Track model array
                     let decodedTracks = try JSONDecoder().decode([Track].self, from: data)
-                    self?.tracks = decodedTracks
+                    self.tracks = decodedTracks
                 } catch {
                     self.errorMessage = "Failed to parse soul manifest: \(error.localizedDescription)"
                 }
