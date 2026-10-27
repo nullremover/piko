@@ -4,14 +4,11 @@ struct ContentView: View {
     @StateObject private var audioManager = AudioPlayerManager()
     @StateObject private var playlistLoader = PlaylistLoader()
     @StateObject private var themeManager = ThemeManager()
-    
-    // Replace this with your actual GitHub Pages JSON raw URL once you host it!
-    // Example: "https://your-username.github.io/piko/playlist.json"
-    @State private var jsonUrlInput: String = "https://raw.githubusercontent.com/nullremover/piko/main/playlist.json"
+
+    @State private var jsonUrlInput: String = "https://nullremover.github.io/piko-music/playlist.json"
 
     var body: some View {
         ZStack {
-            // Dynamic Tea Background
             themeManager.currentTheme.backgroundColor
                 .ignoresSafeArea()
 
@@ -22,8 +19,7 @@ struct ContentView: View {
                         .font(.largeTitle)
                         .bold()
                         .foregroundColor(themeManager.currentTheme.primaryColor)
-                    
-                    // The Orange Pekoe Theme Switcher
+
                     Picker("Tea Strength", selection: $themeManager.currentTheme) {
                         ForEach(PikoTeaTheme.allCases) { theme in
                             Text(theme.rawValue).tag(theme)
@@ -53,7 +49,7 @@ struct ContentView: View {
                     ProgressView()
                         .tint(themeManager.currentTheme.primaryColor)
                         .padding()
-                } else if let error = errorString(playlistLoader.errorMessage) {
+                } else if let error = playlistLoader.errorMessage {
                     Text(error)
                         .foregroundColor(.red)
                         .font(.subheadline)
@@ -86,11 +82,16 @@ struct ContentView: View {
                         .listRowBackground(themeManager.currentTheme.backgroundColor.opacity(0.8))
                     }
                     .scrollContentBackground(.hidden)
+                }
 
                 Spacer()
 
                 // Now Playing Control Card
                 VStack(spacing: 12) {
+                    ArtworkView(url: audioManager.currentArtworkURL,
+                                title: audioManager.currentTrackTitle)
+                        .frame(maxWidth: 220)
+
                     VStack(spacing: 4) {
                         Text(audioManager.currentTrackTitle)
                             .font(.headline)
@@ -98,12 +99,8 @@ struct ContentView: View {
                         Text(audioManager.currentArtist)
                             .font(.subheadline)
                             .foregroundColor(themeManager.currentTheme.textColor.opacity(0.7))
-                        ArtworkView(url: audioManager.currentArtworkURL,
-                                    title: audioManager.currentTrackTitle)
-                            .frame(maxWidth: 280)
-                            .padding(.top, 8)
                     }
-                    
+
                     Button(action: {
                         audioManager.togglePlayPause()
                     }) {
@@ -120,9 +117,5 @@ struct ContentView: View {
                 .padding(.bottom)
             }
         }
-    }
-    
-    func errorString(_ msg: String?) -> String? {
-        return msg
     }
 }
