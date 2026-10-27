@@ -12,9 +12,15 @@ targets:
           - Package.swift
           - project.yml
           - .github
+          - Info.plist
+    info:
+      path: Info.plist
+      properties:
+        UIBackgroundModes:
+          - audio
+        UILaunchScreen: {}
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.nullremover.piko
         GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_UILaunchScreen_Generation: YES
         SWIFT_VERSION: "5.9"
