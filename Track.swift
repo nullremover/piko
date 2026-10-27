@@ -37,13 +37,13 @@ struct Track: Identifiable, Codable {
     }
 
     init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let c = try decoder.container(keyedBy: CodingKeys.self)
         id = UUID()
-        title = try container.decode(String.self, forKey: .title)
-        artist = try container.decode(String.self, forKey: .artist)
-        url = try container.decode(String.self, forKey: .url)
-        artwork = try container.decodeIfPresent(String.self, forKey: .artwork)
-        lyrics = try container.decodeIfPresent(String.self, forKey: .lyrics)
-        source = try container.decodeIfPresent(TrackSource.self, forKey: .source) ?? .online
+        title = try c.decode(String.self, forKey: .title)
+        artist = try c.decode(String.self, forKey: .artist)
+        url = try c.decode(String.self, forKey: .url)
+        artwork = try c.decodeIfPresent(String.self, forKey: .artwork)
+        lyrics = try c.decodeIfPresent(String.self, forKey: .lyrics)
+        source = try c.decodeIfPresent(TrackSource.self, forKey: .source) ?? .online
     }
 }
