@@ -13,7 +13,7 @@ struct ContentView: View {
     @StateObject private var playlistLoader = PlaylistLoader()
     @StateObject private var themeManager = ThemeManager()
 
-    private let jsonUrl = "https://piko-music.luckyexogd.workers.dev/playlist.json?k=PIKOMUSIC_SH3R1PSM30UT0FMYB0DY"
+    static let jsonUrl = "https://piko-music.luckyexogd.workers.dev/playlist.json?k=PIKOMUSIC_SH3R1PSM30UT0FMYB0DY"
 
     @State private var searchText = ""
     @State private var showNowPlaying = false
