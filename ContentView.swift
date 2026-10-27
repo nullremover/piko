@@ -58,7 +58,7 @@ struct ContentView: View {
         }
         .onAppear {
             if playlistLoader.tracks.isEmpty {
-                playlistLoader.loadPlaylist(from: jsonUrl)
+                playlistLoader.loadPlaylist(from: Self.jsonUrl)
             }
         }
     }
@@ -78,7 +78,7 @@ struct ContentView: View {
             Spacer()
 
             Button {
-                playlistLoader.loadPlaylist(from: jsonUrl)
+                playlistLoader.loadPlaylist(from: Self.jsonUrl)
             } label: {
                 circleIcon("arrow.clockwise")
             }
@@ -160,7 +160,7 @@ struct ContentView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
             Button("try again") {
-                playlistLoader.loadPlaylist(from: jsonUrl)
+                playlistLoader.loadPlaylist(from: Self.jsonUrl)
             }
             .buttonStyle(.borderedProminent)
             .tint(theme.primaryColor)
@@ -187,7 +187,7 @@ struct ContentView: View {
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
-        .refreshable { playlistLoader.loadPlaylist(from: jsonUrl) }
+        .refreshable { playlistLoader.loadPlaylist(from: Self.jsonUrl) }
         .overlay {
             if filteredTracks.isEmpty {
                 Text("no matches")
