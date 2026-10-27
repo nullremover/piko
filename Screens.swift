@@ -36,6 +36,263 @@ struct DestinationView: View {
     }
 }
 
+// MARK: - Mini player
+
+struct MiniPlayer: View {
+    @ObservedObject var audioManager: AudioPlayerManager
+    @ObservedObject var clock: PlaybackClock
+    let theme: PikoTeaTheme
+    let onTap: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ArtworkView(
+                url: audioManager.currentArtworkURL,
+                title: audioManager.currentTrackTitle,
+                cornerRadius: 8,
+                shadowRadius: 0,
+                placeholderSize: 160
+            )
+            .frame(width: 44, height: 44)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(audioManager.currentTrackTitle)
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .foregroundColor(theme.textColor)
+                    .lineLimit(1)
+                Text(audioManager.currentArtist)
+                    .font(.system(size: 12, design: .rounded))
+                    .foregroundColor(theme.textColor.opacity(0.65))
+                    .lineLimit(1)
+            }
+
+            Spacer()
+
+            Button {
+                audioManager.togglePlayPause()
+            } label: {
+                Image(systemName: audioManager.isPlaying ? "pause.fill" : "play.fill")
+                    .font(.system(size: 22))
+                    .frame(width: 36, height: 36)
+            }
+
+            Button {
+                audioManager.next()
+            } label: {
+                Image(systemName: "forward.fill")
+                    .font(.system(size: 20))
+                    .frame(width: 36, height: 36)
+            }
+        }
+        .foregroundColor(theme.primaryColor)
+        .padding(10)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(alignment: .bottomLeading) {
+            GeometryReader { geo in
+                Capsule()
+                    .fill(theme.primaryColor)
+                    .frame(width: geo.size.width * clock.progress, height: 3)
+            }
+            .frame(height: 3)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 3)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onTap)
+    }
+}
+
+// MARK: - Full-screen player
+
+struct NowPlayingView: View {
+    @ObservedObject var audioManager: AudioPlayerManager
+    @ObservedObject var clock: PlaybackClock
+    let theme: PikoTeaTheme
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var scrub: Double = 0
+    @State private var isScrubbing = false
+    @State private var showLyrics = false
+    @EnvironmentObject private var library: LibraryStore
+
+    private var shownElapsed: Double {
+        isScrubbing ? scrub * clock.duration : clock.elapsed
+    }
+
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [theme.primaryColor.opacity(0.45), theme.backgroundColor],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+
+            VStack(spacing: 22) {
+                topBar
+
+                if showLyrics {
+                    compactHeader
+                    LyricsView(audioManager: audioManager, clock: clock, theme: theme)
+                } else {
+                    Spacer(minLength: 0)
+                    bigArtwork
+                    titleBlock
+                }
+
+                seekBar
+                controls
+
+                if !showLyrics {
+                    Spacer(minLength: 0)
+                }
+            }
+            .padding(.bottom, 12)
+        }
+        .preferredColorScheme(theme == .splashOfMilk ? .light : .dark)
+        .onAppear { scrub = clock.progress }
+        .onReceive(clock.$elapsed) { e in
+            if !isScrubbing && clock.duration > 0 {
+                scrub = min(max(e / clock.duration, 0), 1)
+            }
+        }
+    }
+
+    private var topBar: some View {
+        HStack {
+            Button {
+                dismiss()
+            } label: {
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 18, weight: .semibold))
+            }
+            Spacer()
+            Text(showLyrics ? "lyrics" : "now playing")
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+            Spacer()
+            Button {
+                withAnimation(.easeInOut(duration: 0.25)) { showLyrics.toggle() }
+            } label: {
+                Image(systemName: showLyrics ? "quote.bubble.fill" : "quote.bubble")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(showLyrics ? theme.primaryColor : theme.textColor.opacity(0.8))
+            }
+        }
+        .foregroundColor(theme.textColor.opacity(0.8))
+        .padding(.horizontal, 24)
+        .padding(.top, 16)
+    }
+
+    private var bigArtwork: some View {
+        ArtworkView(
+            url: audioManager.currentArtworkURL,
+            title: audioManager.currentTrackTitle,
+            cornerRadius: 24
+        )
+        .padding(.horizontal, 28)
+        .scaleEffect(audioManager.isPlaying ? 1.0 : 0.88)
+        .animation(.spring(response: 0.5, dampingFraction: 0.7), value: audioManager.isPlaying)
+    }
+
+    private var titleBlock: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(audioManager.currentTrackTitle)
+                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                    .foregroundColor(theme.textColor)
+                    .lineLimit(2)
+                Text(audioManager.currentArtist)
+                    .font(.system(size: 17, design: .rounded))
+                    .foregroundColor(theme.primaryColor)
+            }
+            Spacer()
+            if let track = audioManager.currentTrack {
+                Button {
+                    library.toggleLike(track)
+                } label: {
+                    Image(systemName: library.isLiked(track) ? "heart.fill" : "heart")
+                        .font(.system(size: 24))
+                        .foregroundColor(theme.primaryColor)
+                }
+            }
+        }
+        .padding(.horizontal, 28)
+    }
+
+    private var compactHeader: some View {
+        HStack(spacing: 12) {
+            ArtworkView(
+                url: audioManager.currentArtworkURL,
+                title: audioManager.currentTrackTitle,
+                cornerRadius: 10,
+                shadowRadius: 0,
+                placeholderSize: 160
+            )
+            .frame(width: 52, height: 52)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(audioManager.currentTrackTitle)
+                    .font(.system(size: 17, weight: .bold, design: .rounded))
+                    .foregroundColor(theme.textColor)
+                    .lineLimit(1)
+                Text(audioManager.currentArtist)
+                    .font(.system(size: 14, design: .rounded))
+                    .foregroundColor(theme.primaryColor)
+                    .lineLimit(1)
+            }
+            Spacer()
+        }
+        .padding(.horizontal, 24)
+    }
+
+    private var seekBar: some View {
+        VStack(spacing: 4) {
+            Slider(value: $scrub, in: 0...1, onEditingChanged: { editing in
+                isScrubbing = editing
+                if !editing {
+                    audioManager.seek(toFraction: scrub)
+                }
+            })
+            .tint(theme.primaryColor)
+
+            HStack {
+                Text(formatTime(shownElapsed))
+                Spacer()
+                Text("-" + formatTime(max(clock.duration - shownElapsed, 0)))
+            }
+            .font(.system(size: 12, weight: .medium, design: .rounded))
+            .monospacedDigit()
+            .foregroundColor(theme.textColor.opacity(0.6))
+        }
+        .padding(.horizontal, 28)
+    }
+
+    private var controls: some View {
+        HStack(spacing: 44) {
+            Button {
+                audioManager.previous()
+            } label: {
+                Image(systemName: "backward.fill").font(.system(size: 28))
+            }
+
+            Button {
+                audioManager.togglePlayPause()
+            } label: {
+                Image(systemName: audioManager.isPlaying ? "pause.circle.fill" : "play.circle.fill")
+                    .font(.system(size: 78))
+            }
+
+            Button {
+                audioManager.next()
+            } label: {
+                Image(systemName: "forward.fill").font(.system(size: 28))
+            }
+        }
+        .foregroundColor(theme.primaryColor)
+    }
+}
+
+
 struct ScreenBackground: View {
     let theme: PikoTeaTheme
 
