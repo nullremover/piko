@@ -292,6 +292,94 @@ struct NowPlayingView: View {
     }
 }
 
+// MARK: - Helpers & Lyrics
+
+private func formatTime(_ seconds: Double) -> String {
+    guard seconds.isFinite, seconds >= 0 else { return "0:00" }
+    let total = Int(seconds)
+    return String(format: "%d:%02d", total / 60, total % 60)
+}
+
+struct LyricsView: View {
+    @ObservedObject var audioManager: AudioPlayerManager
+    @ObservedObject var clock: PlaybackClock
+    let theme: PikoTeaTheme
+
+    private var currentIndex: Int? {
+        guard audioManager.lyricsSynced else { return nil }
+        return audioManager.lyrics.lastIndex(where: { $0.time <= clock.elapsed + 0.15 })
+    }
+
+    var body: some View {
+        switch audioManager.lyricsState {
+        case .loading:
+            VStack {
+                Spacer()
+                ProgressView().tint(theme.primaryColor)
+                Spacer()
+            }
+            .frame(maxWidth: .infinity)
+
+        case .none:
+            VStack(spacing: 10) {
+                Spacer()
+                Image(systemName: "text.quote")
+                    .font(.system(size: 32))
+                    .foregroundColor(theme.primaryColor)
+                Text("no lyrics for this one")
+                    .font(.system(size: 15, design: .rounded))
+                    .foregroundColor(theme.textColor.opacity(0.7))
+                Spacer()
+            }
+            .frame(maxWidth: .infinity)
+
+        case .ready:
+            ScrollViewReader { proxy in
+                ScrollView(showsIndicators: false) {
+                    LazyVStack(alignment: .leading, spacing: 20) {
+                        ForEach(audioManager.lyrics) { line in
+                            let isCurrent = currentIndex == line.id
+                            Text(line.text.isEmpty ? "♪" : line.text)
+                                .font(.system(size: 26, weight: .bold, design: .rounded))
+                                .foregroundColor(color(isCurrent: isCurrent))
+                                .multilineTextAlignment(.leading)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .scaleEffect(isCurrent ? 1.0 : 0.94, anchor: .leading)
+                                .animation(.easeOut(duration: 0.25), value: isCurrent)
+                                .id(line.id)
+                                .onTapGesture {
+                                    if audioManager.lyricsSynced {
+                                        audioManager.seek(toSeconds: line.time)
+                                    }
+                                }
+                        }
+                    }
+                    .padding(.horizontal, 28)
+                    .padding(.vertical, 140)
+                }
+                .onChange(of: currentIndex) { newValue in
+                    guard let newValue else { return }
+                    withAnimation(.easeInOut(duration: 0.4)) {
+                        proxy.scrollTo(newValue, anchor: .center)
+                    }
+                }
+                .onAppear {
+                    if let currentIndex {
+                        proxy.scrollTo(currentIndex, anchor: .center)
+                    }
+                }
+            }
+        }
+    }
+
+    private func color(isCurrent: Bool) -> Color {
+        if audioManager.lyricsSynced {
+            return isCurrent ? theme.primaryColor : theme.textColor.opacity(0.35)
+        }
+        return theme.textColor.opacity(0.85)
+    }
+}
+
 
 struct ScreenBackground: View {
     let theme: PikoTeaTheme
