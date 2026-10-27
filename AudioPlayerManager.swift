@@ -10,6 +10,15 @@ class AudioPlayerManager: ObservableObject {
     @Published var currentArtist: String = ""
     @Published var progress: Double = 0.0
 
+    init() {
+    do {
+        try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
+        try AVAudioSession.sharedInstance().setActive(true)
+    } catch {
+        print("Audio session error: \(error)")
+    }
+}
+
     // Play a specific track from a web URL
     func playTrack(urlString: String, title: String, artist: String) {
         guard let url = URL(string: urlString) else { return }
