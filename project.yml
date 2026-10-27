@@ -1,0 +1,20 @@
+name: Piko
+options:
+  deploymentTarget:
+    iOS: "16.0"
+targets:
+  Piko:
+    type: application
+    platform: iOS
+    sources:
+      - path: .
+        excludes:
+          - Package.swift
+          - project.yml
+          - .github
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.nullremover.piko
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        SWIFT_VERSION: "5.9"
