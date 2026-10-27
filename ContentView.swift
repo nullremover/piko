@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 private func formatTime(_ seconds: Double) -> String {
     guard seconds.isFinite, seconds >= 0 else { return "0:00" }
@@ -17,16 +18,28 @@ struct ContentView: View {
 
     @State private var searchText = ""
     @State private var showNowPlaying = false
+    @State private var showMusicImporter = false
+    @State private var localTracks: [Track] = []
+    @State private var importError: String?
 
     private var theme: PikoTeaTheme { themeManager.currentTheme }
 
-    private var filteredTracks: [Track] {
-        let q = searchText.trimmingCharacters(in: .whitespaces).lowercased()
-        guard !q.isEmpty else { return playlistLoader.tracks }
-        return playlistLoader.tracks.filter {
-            $0.title.lowercased().contains(q) || $0.artist.lowercased().contains(q)
-        }
+   private var allTracks: [Track] {
+    playlistLoader.tracks + localTracks
+}
+
+private var filteredTracks: [Track] {
+    let q = searchText.trimmingCharacters(in: .whitespaces).lowercased()
+
+    guard !q.isEmpty else { return allTracks }
+
+    return allTracks.filter {
+        $0.title.lowercased().contains(q) ||
+        $0.artist.lowercased().contains(q)
     }
+}
+
+    
 
     var body: some View {
         ZStack {
@@ -57,10 +70,36 @@ struct ContentView: View {
             NowPlayingView(audioManager: audioManager, clock: audioManager.clock, theme: theme)
         }
         .onAppear {
+            loadLocalTracks()
             if playlistLoader.tracks.isEmpty {
                 playlistLoader.loadPlaylist(from: Self.jsonUrl)
             }
         }
+        .fileImporter(
+    isPresented: $showMusicImporter,
+    allowedContentTypes: [.audio],
+    allowsMultipleSelection: true
+) { result in
+    switch result {
+    case .success(let urls):
+        importLocalFiles(urls)
+    case .failure(let error):
+        importError = error.localizedDescription
+    }
+}
+.alert(
+    "Couldn't import music",
+    isPresented: Binding(
+        get: { importError != nil },
+        set: { if !$0 { importError = nil } }
+    )
+) {
+    Button("OK", role: .cancel) {
+        importError = nil
+    }
+} message: {
+    Text(importError ?? "Unknown error")
+}
     }
 
     // MARK: Header
@@ -71,7 +110,7 @@ struct ContentView: View {
                 Text("piko")
                     .font(.system(size: 36, weight: .heavy, design: .rounded))
                     .foregroundColor(theme.primaryColor)
-                Text("\(playlistLoader.tracks.count) \(playlistLoader.tracks.count == 1 ? "song" : "songs")")
+                Text("\(allTracks.count) \(allTracks.count == 1 ? "song" : "songs")")
                     .font(.system(size: 13, weight: .medium, design: .rounded))
                     .foregroundColor(theme.textColor.opacity(0.6))
             }
@@ -81,6 +120,12 @@ struct ContentView: View {
                 playlistLoader.loadPlaylist(from: Self.jsonUrl)
             } label: {
                 circleIcon("arrow.clockwise")
+            }
+
+            Button {
+                showMusicImporter = true
+            } label: {
+                circleIcon("folder.badge.plus")
             }
 
             Menu {
@@ -132,7 +177,7 @@ struct ContentView: View {
 
     @ViewBuilder
     private var content: some View {
-        if playlistLoader.tracks.isEmpty {
+       if allTracks.isEmpty {
             if playlistLoader.isLoading {
                 VStack {
                     Spacer()
@@ -202,7 +247,91 @@ struct ContentView: View {
         if audioManager.currentTrack?.url == track.url {
             audioManager.togglePlayPause()
         } else {
-            audioManager.play(track: track, in: filteredTracks)
+            audioManager.play(track: track, in: allTracks)
+        }
+    }
+
+    
+    private var importedMusicFolder: URL {
+        FileManager.default.urls(
+            for: .documentDirectory,
+            in: .userDomainMask
+        )[0].appendingPathComponent("ImportedMusic", isDirectory: true)
+    }
+    
+    private func loadLocalTracks() {
+        do {
+            try FileManager.default.createDirectory(
+                at: importedMusicFolder,
+                withIntermediateDirectories: true
+            )
+    
+            let files = try FileManager.default.contentsOfDirectory(
+                at: importedMusicFolder,
+                includingPropertiesForKeys: nil
+            )
+    
+            let audioExtensions: Set<String> = [
+                "mp3", "m4a", "aac", "wav", "aif",
+                "aiff", "caf", "flac", "alac"
+            ]
+    
+            localTracks = files
+                .filter { audioExtensions.contains($0.pathExtension.lowercased()) }
+                .sorted { $0.lastPathComponent.localizedCaseInsensitiveCompare(
+                    $1.lastPathComponent
+                ) == .orderedAscending }
+                .map { url in
+                    Track(
+                        title: url.deletingPathExtension().lastPathComponent,
+                        artist: "Local File",
+                        url: url.absoluteString,
+                        source: .local
+                    )
+                }
+        } catch {
+            importError = error.localizedDescription
+        }
+    }
+    
+    private func importLocalFiles(_ urls: [URL]) {
+        do {
+            try FileManager.default.createDirectory(
+                at: importedMusicFolder,
+                withIntermediateDirectories: true
+            )
+    
+            for sourceURL in urls {
+                let hasAccess = sourceURL.startAccessingSecurityScopedResource()
+                defer {
+                    if hasAccess {
+                        sourceURL.stopAccessingSecurityScopedResource()
+                    }
+                }
+    
+                let ext = sourceURL.pathExtension.lowercased()
+                let allowedExtensions: Set<String> = [
+                    "mp3", "m4a", "aac", "wav", "aif",
+                    "aiff", "caf", "flac", "alac"
+                ]
+    
+                guard allowedExtensions.contains(ext) else {
+                    continue
+                }
+    
+                let destinationURL = importedMusicFolder
+                    .appendingPathComponent(UUID().uuidString)
+                    .appendingPathExtension(ext)
+    
+                try FileManager.default.copyItem(
+                    at: sourceURL,
+                    to: destinationURL
+                )
+            }
+    
+            loadLocalTracks()
+        } catch {
+            importError = error.localizedDescription
         }
     }
 }
