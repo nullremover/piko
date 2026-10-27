@@ -6,6 +6,8 @@ struct ArtworkView: View {
     let url: URL?
     let title: String
     var cornerRadius: CGFloat = 20
+    var shadowRadius: CGFloat = 12
+    var placeholderSize: CGFloat = 600
 
     var body: some View {
         Group {
@@ -24,11 +26,11 @@ struct ArtworkView: View {
         }
         .aspectRatio(1, contentMode: .fit)
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-        .shadow(radius: 12, y: 6)
+        .shadow(radius: shadowRadius, y: shadowRadius / 2)
     }
 
     private var placeholder: some View {
-        Image(uiImage: ArtworkRenderer.placeholderImage(title: title, size: 600))
+        Image(uiImage: ArtworkRenderer.placeholderImage(title: title, size: placeholderSize))
             .resizable()
             .scaledToFill()
     }
