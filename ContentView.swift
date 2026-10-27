@@ -329,6 +329,7 @@ struct NowPlayingView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var scrub: Double = 0
     @State private var isScrubbing = false
+    @State private var showLyrics = false
 
     private var shownElapsed: Double {
         isScrubbing ? scrub * clock.duration : clock.elapsed
@@ -344,88 +345,25 @@ struct NowPlayingView: View {
             .ignoresSafeArea()
 
             VStack(spacing: 22) {
-                HStack {
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "chevron.down")
-                            .font(.system(size: 18, weight: .semibold))
-                    }
-                    Spacer()
-                    Text("now playing")
-                        .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    Spacer()
-                    Color.clear.frame(width: 24, height: 24)
+                topBar
+
+                if showLyrics {
+                    compactHeader
+                    LyricsView(audioManager: audioManager, clock: clock, theme: theme)
+                } else {
+                    Spacer(minLength: 0)
+                    bigArtwork
+                    titleBlock
                 }
-                .foregroundColor(theme.textColor.opacity(0.8))
-                .padding(.top, 16)
 
-                Spacer(minLength: 0)
+                seekBar
+                controls
 
-                ArtworkView(
-                    url: audioManager.currentArtworkURL,
-                    title: audioManager.currentTrackTitle,
-                    cornerRadius: 24
-                )
-                .padding(.horizontal, 28)
-                .scaleEffect(audioManager.isPlaying ? 1.0 : 0.88)
-                .animation(.spring(response: 0.5, dampingFraction: 0.7), value: audioManager.isPlaying)
-
-                VStack(spacing: 6) {
-                    Text(audioManager.currentTrackTitle)
-                        .font(.system(size: 24, weight: .bold, design: .rounded))
-                        .foregroundColor(theme.textColor)
-                        .multilineTextAlignment(.center)
-                    Text(audioManager.currentArtist)
-                        .font(.system(size: 17, design: .rounded))
-                        .foregroundColor(theme.primaryColor)
+                if !showLyrics {
+                    Spacer(minLength: 0)
                 }
-                .padding(.horizontal, 24)
-
-                VStack(spacing: 4) {
-                    Slider(value: $scrub, in: 0...1, onEditingChanged: { editing in
-                        isScrubbing = editing
-                        if !editing {
-                            audioManager.seek(toFraction: scrub)
-                        }
-                    })
-                    .tint(theme.primaryColor)
-
-                    HStack {
-                        Text(formatTime(shownElapsed))
-                        Spacer()
-                        Text("-" + formatTime(max(clock.duration - shownElapsed, 0)))
-                    }
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundColor(theme.textColor.opacity(0.6))
-                }
-                .padding(.horizontal, 28)
-
-                HStack(spacing: 44) {
-                    Button {
-                        audioManager.previous()
-                    } label: {
-                        Image(systemName: "backward.fill").font(.system(size: 28))
-                    }
-
-                    Button {
-                        audioManager.togglePlayPause()
-                    } label: {
-                        Image(systemName: audioManager.isPlaying ? "pause.circle.fill" : "play.circle.fill")
-                            .font(.system(size: 78))
-                    }
-
-                    Button {
-                        audioManager.next()
-                    } label: {
-                        Image(systemName: "forward.fill").font(.system(size: 28))
-                    }
-                }
-                .foregroundColor(theme.primaryColor)
-
-                Spacer(minLength: 0)
             }
+            .padding(.bottom, 12)
         }
         .preferredColorScheme(theme == .splashOfMilk ? .light : .dark)
         .onAppear { scrub = clock.progress }
@@ -434,5 +372,210 @@ struct NowPlayingView: View {
                 scrub = min(max(e / clock.duration, 0), 1)
             }
         }
+    }
+
+    // MARK: Pieces
+
+    private var topBar: some View {
+        HStack {
+            Button {
+                dismiss()
+            } label: {
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 18, weight: .semibold))
+            }
+            Spacer()
+            Text(showLyrics ? "lyrics" : "now playing")
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+            Spacer()
+            Button {
+                withAnimation(.easeInOut(duration: 0.25)) { showLyrics.toggle() }
+            } label: {
+                Image(systemName: showLyrics ? "quote.bubble.fill" : "quote.bubble")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(showLyrics ? theme.primaryColor : theme.textColor.opacity(0.8))
+            }
+        }
+        .foregroundColor(theme.textColor.opacity(0.8))
+        .padding(.horizontal, 24)
+        .padding(.top, 16)
+    }
+
+    private var bigArtwork: some View {
+        ArtworkView(
+            url: audioManager.currentArtworkURL,
+            title: audioManager.currentTrackTitle,
+            cornerRadius: 24
+        )
+        .padding(.horizontal, 28)
+        .scaleEffect(audioManager.isPlaying ? 1.0 : 0.88)
+        .animation(.spring(response: 0.5, dampingFraction: 0.7), value: audioManager.isPlaying)
+    }
+
+    private var titleBlock: some View {
+        VStack(spacing: 6) {
+            Text(audioManager.currentTrackTitle)
+                .font(.system(size: 24, weight: .bold, design: .rounded))
+                .foregroundColor(theme.textColor)
+                .multilineTextAlignment(.center)
+            Text(audioManager.currentArtist)
+                .font(.system(size: 17, design: .rounded))
+                .foregroundColor(theme.primaryColor)
+        }
+        .padding(.horizontal, 24)
+    }
+
+    private var compactHeader: some View {
+        HStack(spacing: 12) {
+            ArtworkView(
+                url: audioManager.currentArtworkURL,
+                title: audioManager.currentTrackTitle,
+                cornerRadius: 10,
+                shadowRadius: 0,
+                placeholderSize: 160
+            )
+            .frame(width: 52, height: 52)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(audioManager.currentTrackTitle)
+                    .font(.system(size: 17, weight: .bold, design: .rounded))
+                    .foregroundColor(theme.textColor)
+                    .lineLimit(1)
+                Text(audioManager.currentArtist)
+                    .font(.system(size: 14, design: .rounded))
+                    .foregroundColor(theme.primaryColor)
+                    .lineLimit(1)
+            }
+            Spacer()
+        }
+        .padding(.horizontal, 24)
+    }
+
+    private var seekBar: some View {
+        VStack(spacing: 4) {
+            Slider(value: $scrub, in: 0...1, onEditingChanged: { editing in
+                isScrubbing = editing
+                if !editing {
+                    audioManager.seek(toFraction: scrub)
+                }
+            })
+            .tint(theme.primaryColor)
+
+            HStack {
+                Text(formatTime(shownElapsed))
+                Spacer()
+                Text("-" + formatTime(max(clock.duration - shownElapsed, 0)))
+            }
+            .font(.system(size: 12, weight: .medium, design: .rounded))
+            .monospacedDigit()
+            .foregroundColor(theme.textColor.opacity(0.6))
+        }
+        .padding(.horizontal, 28)
+    }
+
+    private var controls: some View {
+        HStack(spacing: 44) {
+            Button {
+                audioManager.previous()
+            } label: {
+                Image(systemName: "backward.fill").font(.system(size: 28))
+            }
+
+            Button {
+                audioManager.togglePlayPause()
+            } label: {
+                Image(systemName: audioManager.isPlaying ? "pause.circle.fill" : "play.circle.fill")
+                    .font(.system(size: 78))
+            }
+
+            Button {
+                audioManager.next()
+            } label: {
+                Image(systemName: "forward.fill").font(.system(size: 28))
+            }
+        }
+        .foregroundColor(theme.primaryColor)
+    }
+}
+
+// MARK: - Lyrics
+
+struct LyricsView: View {
+    @ObservedObject var audioManager: AudioPlayerManager
+    @ObservedObject var clock: PlaybackClock
+    let theme: PikoTeaTheme
+
+    private var currentIndex: Int? {
+        guard audioManager.lyricsSynced else { return nil }
+        return audioManager.lyrics.lastIndex(where: { $0.time <= clock.elapsed + 0.15 })
+    }
+
+    var body: some View {
+        switch audioManager.lyricsState {
+        case .loading:
+            VStack {
+                Spacer()
+                ProgressView().tint(theme.primaryColor)
+                Spacer()
+            }
+            .frame(maxWidth: .infinity)
+
+        case .none:
+            VStack(spacing: 10) {
+                Spacer()
+                Image(systemName: "text.quote")
+                    .font(.system(size: 32))
+                    .foregroundColor(theme.primaryColor)
+                Text("no lyrics for this one")
+                    .font(.system(size: 15, design: .rounded))
+                    .foregroundColor(theme.textColor.opacity(0.7))
+                Spacer()
+            }
+            .frame(maxWidth: .infinity)
+
+        case .ready:
+            ScrollViewReader { proxy in
+                ScrollView(showsIndicators: false) {
+                    LazyVStack(alignment: .leading, spacing: 20) {
+                        ForEach(audioManager.lyrics) { line in
+                            let isCurrent = currentIndex == line.id
+                            Text(line.text.isEmpty ? "♪" : line.text)
+                                .font(.system(size: 26, weight: .bold, design: .rounded))
+                                .foregroundColor(color(isCurrent: isCurrent))
+                                .multilineTextAlignment(.leading)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .scaleEffect(isCurrent ? 1.0 : 0.94, anchor: .leading)
+                                .animation(.easeOut(duration: 0.25), value: isCurrent)
+                                .id(line.id)
+                                .onTapGesture {
+                                    if audioManager.lyricsSynced {
+                                        audioManager.seek(toSeconds: line.time)
+                                    }
+                                }
+                        }
+                    }
+                    .padding(.horizontal, 28)
+                    .padding(.vertical, 140)
+                }
+                .onChange(of: currentIndex) { newValue in
+                    guard let newValue else { return }
+                    withAnimation(.easeInOut(duration: 0.4)) {
+                        proxy.scrollTo(newValue, anchor: .center)
+                    }
+                }
+                .onAppear {
+                    if let currentIndex {
+                        proxy.scrollTo(currentIndex, anchor: .center)
+                    }
+                }
+            }
+        }
+    }
+
+    private func color(isCurrent: Bool) -> Color {
+        if audioManager.lyricsSynced {
+            return isCurrent ? theme.primaryColor : theme.textColor.opacity(0.35)
+        }
+        return theme.textColor.opacity(0.85)   // plain lyrics: all lines readable
     }
 }
