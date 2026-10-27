@@ -71,7 +71,7 @@ struct ContentView: View {
                             }
                             Spacer()
                             Button(action: {
-                                audioManager.playTrack(urlString: track.streamUrl, title: track.title, artist: track.artist)
+                                audioManager.playTrack(urlString: track.streamUrl, title: track.title, artist: track.artist, artworkURLString: track.artwork)
                             }) {
                                 Image(systemName: "play.circle.fill")
                                     .font(.system(size: 32))
@@ -94,6 +94,10 @@ struct ContentView: View {
                         Text(audioManager.currentArtist)
                             .font(.subheadline)
                             .foregroundColor(themeManager.currentTheme.textColor.opacity(0.7))
+                        ArtworkView(url: audioManager.currentArtworkURL,
+                                    title: audioManager.currentTrackTitle)
+                            .frame(maxWidth: 280)
+                            .padding(.top, 8)
                     }
                     
                     Button(action: {
