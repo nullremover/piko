@@ -5,7 +5,7 @@ struct ContentView: View {
     @StateObject private var playlistLoader = PlaylistLoader()
     @StateObject private var themeManager = ThemeManager()
 
-    @State private var jsonUrlInput: String = "https://raw.githubusercontent.com/nullremover/piko/refs/heads/main/playlist.json"
+    @State private var jsonUrlInput: String = "https://piko-music.luckyexogd.workers.dev/playlist.json?k=PIKOMUSIC_SH3R1PSM30UT0FMYB0DY"
 
     var body: some View {
         ZStack {
