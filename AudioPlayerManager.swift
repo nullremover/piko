@@ -13,6 +13,10 @@ final class PlaybackClock: ObservableObject {
     }
 }
 
+enum LyricsState {
+    case none, loading, ready
+}
+
 class AudioPlayerManager: ObservableObject {
     private var player: AVPlayer?
     private var statusObservation: NSKeyValueObservation?
@@ -20,6 +24,7 @@ class AudioPlayerManager: ObservableObject {
     private var endObserver: NSObjectProtocol?
     private var artworkImage: UIImage?
     private var artworkToken = UUID()
+    private var lyricsToken = UUID()
 
     let clock = PlaybackClock()
 
@@ -30,6 +35,10 @@ class AudioPlayerManager: ObservableObject {
     @Published var errorMessage: String?
     @Published var queue: [Track] = []
     @Published var currentIndex: Int? = nil
+
+    @Published var lyrics: [LyricLine] = []
+    @Published var lyricsSynced = false
+    @Published var lyricsState: LyricsState = .none
 
     var currentTrack: Track? {
         guard let i = currentIndex, queue.indices.contains(i) else { return nil }
@@ -61,7 +70,7 @@ class AudioPlayerManager: ObservableObject {
 
     func previous() {
         guard let i = currentIndex, !queue.isEmpty else { return }
-        if clock.elapsed > 3 {          // restart the song if we're past 3s
+        if clock.elapsed > 3 {
             seek(toFraction: 0)
             return
         }
@@ -72,12 +81,22 @@ class AudioPlayerManager: ObservableObject {
         guard queue.indices.contains(index) else { return }
         currentIndex = index
         let t = queue[index]
-        playTrack(urlString: t.url, title: t.title, artist: t.artist, artworkURLString: t.artwork)
+        playTrack(
+            urlString: t.url,
+            title: t.title,
+            artist: t.artist,
+            artworkURLString: t.artwork,
+            lyricsURLString: t.lyrics
+        )
     }
 
     // MARK: - Playback
 
-    func playTrack(urlString: String, title: String, artist: String, artworkURLString: String? = nil) {
+    func playTrack(urlString: String,
+                   title: String,
+                   artist: String,
+                   artworkURLString: String? = nil,
+                   lyricsURLString: String? = nil) {
         guard let url = URL(string: urlString) else {
             errorMessage = "Bad URL: \(urlString)"
             return
@@ -123,7 +142,7 @@ class AudioPlayerManager: ObservableObject {
             let newPlayer = AVPlayer(playerItem: item)
             player = newPlayer
             timeObserver = newPlayer.addPeriodicTimeObserver(
-                forInterval: CMTime(seconds: 0.5, preferredTimescale: 600),
+                forInterval: CMTime(seconds: 0.25, preferredTimescale: 600),
                 queue: .main
             ) { [weak self] time in
                 guard let self, time.seconds.isFinite else { return }
@@ -136,6 +155,7 @@ class AudioPlayerManager: ObservableObject {
 
         artworkImage = ArtworkRenderer.placeholderImage(title: title, size: 600)
         loadArtwork(title: title)
+        loadLyrics(urlString: lyricsURLString)
 
         play()
     }
@@ -166,6 +186,11 @@ class AudioPlayerManager: ObservableObject {
         }
     }
 
+    func seek(toSeconds seconds: Double) {
+        guard clock.duration > 0 else { return }
+        seek(toFraction: seconds / clock.duration)
+    }
+
     // MARK: - Artwork
 
     private func loadArtwork(title: String) {
@@ -179,6 +204,46 @@ class AudioPlayerManager: ObservableObject {
                 guard self.artworkToken == token else { return }
                 self.artworkImage = image
                 self.updateNowPlaying()
+            }
+        }
+    }
+
+    // MARK: - Lyrics
+
+    private func loadLyrics(urlString: String?) {
+        let token = UUID()
+        lyricsToken = token
+        lyrics = []
+        lyricsSynced = false
+
+        guard let urlString, let url = URL(string: urlString) else {
+            lyricsState = .none
+            return
+        }
+        lyricsState = .loading
+
+        Task {
+            var parsed: ParsedLyrics? = nil
+            do {
+                let (data, response) = try await URLSession.shared.data(from: url)
+                if let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) {
+                    let text = String(data: data, encoding: .utf8)
+                        ?? String(decoding: data, as: UTF8.self)
+                    parsed = LRCParser.parse(text)
+                }
+            } catch {
+                print("Lyrics load failed: \(error.localizedDescription)")
+            }
+
+            await MainActor.run {
+                guard self.lyricsToken == token else { return }   // track changed meanwhile
+                if let parsed, !parsed.lines.isEmpty {
+                    self.lyrics = parsed.lines
+                    self.lyricsSynced = parsed.isSynced
+                    self.lyricsState = .ready
+                } else {
+                    self.lyricsState = .none
+                }
             }
         }
     }
@@ -234,8 +299,7 @@ class AudioPlayerManager: ObservableObject {
                 return .commandFailed
             }
             DispatchQueue.main.async {
-                guard let self, self.clock.duration > 0 else { return }
-                self.seek(toFraction: event.positionTime / self.clock.duration)
+                self?.seek(toSeconds: event.positionTime)
             }
             return .success
         }
