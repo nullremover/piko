@@ -330,6 +330,7 @@ struct NowPlayingView: View {
     @State private var scrub: Double = 0
     @State private var isScrubbing = false
     @State private var showLyrics = false
+    @EnvironmentObject private var library: LibraryStore
 
     private var shownElapsed: Double {
         isScrubbing ? scrub * clock.duration : clock.elapsed
@@ -413,16 +414,28 @@ struct NowPlayingView: View {
     }
 
     private var titleBlock: some View {
-        VStack(spacing: 6) {
-            Text(audioManager.currentTrackTitle)
-                .font(.system(size: 24, weight: .bold, design: .rounded))
-                .foregroundColor(theme.textColor)
-                .multilineTextAlignment(.center)
-            Text(audioManager.currentArtist)
-                .font(.system(size: 17, design: .rounded))
-                .foregroundColor(theme.primaryColor)
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(audioManager.currentTrackTitle)
+                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                    .foregroundColor(theme.textColor)
+                    .lineLimit(2)
+                Text(audioManager.currentArtist)
+                    .font(.system(size: 17, design: .rounded))
+                    .foregroundColor(theme.primaryColor)
+            }
+            Spacer()
+            if let track = audioManager.currentTrack {
+                Button {
+                    library.toggleLike(track)
+                } label: {
+                    Image(systemName: library.isLiked(track) ? "heart.fill" : "heart")
+                        .font(.system(size: 24))
+                        .foregroundColor(theme.primaryColor)
+                }
+            }
         }
-        .padding(.horizontal, 24)
+        .padding(.horizontal, 28)
     }
 
     private var compactHeader: some View {
