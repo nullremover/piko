@@ -9,7 +9,7 @@ struct ContentView: View {
     @StateObject private var themeManager = ThemeManager()
     @StateObject private var library = LibraryStore()
 
-    static let jsonUrl = "https://piko-music.luckyexogd.workers.dev/playlist.json?k=PIKOMUSIC_SH3R1PSM30UT0FMYB0DY"
+    static let jsonUrl = "https://piko-audio.luckyexogd.workers.dev/playlist.json"
 
     @State private var selectedTab = 0
     @State private var showNowPlaying = false
