@@ -45,6 +45,8 @@ class AudioPlayerManager: ObservableObject {
         return queue[i]
     }
 
+    var onTrackStarted: ((Track) -> Void)?
+
     init() {
         do {
             try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
@@ -81,6 +83,7 @@ class AudioPlayerManager: ObservableObject {
         guard queue.indices.contains(index) else { return }
         currentIndex = index
         let t = queue[index]
+        onTrackStarted?(t)
         playTrack(
             urlString: t.url,
             title: t.title,
